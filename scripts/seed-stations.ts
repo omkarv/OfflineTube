@@ -36,6 +36,18 @@ interface TfLLine {
   name: string;
 }
 
+interface TfLRouteSequence {
+  lineId: string;
+  lineName: string;
+  direction: string;
+  branchId: number;
+  orderedLineRoutes: {
+    name: string;
+    naptanIds: string[];
+    serviceType: string;
+  }[];
+}
+
 async function fetchTubeLines(): Promise<TfLLine[]> {
   const url = `${TFL_API_BASE}/Line/Mode/tube${TFL_APP_KEY ? `?app_key=${TFL_APP_KEY}` : ''}`;
   const response = await fetch(url);
@@ -50,6 +62,15 @@ async function fetchStationsForLine(lineId: string): Promise<TfLStopPoint[]> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Failed to fetch stations for ${lineId}: ${response.statusText}`);
+  }
+  return response.json();
+}
+
+async function fetchRouteSequence(lineId: string, direction: string): Promise<TfLRouteSequence> {
+  const url = `${TFL_API_BASE}/Line/${lineId}/Route/Sequence/${direction}${TFL_APP_KEY ? `?app_key=${TFL_APP_KEY}` : ''}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch route sequence for ${lineId}: ${response.statusText}`);
   }
   return response.json();
 }
@@ -87,6 +108,8 @@ async function main() {
   // Collect all unique stations across all lines
   const stationMap = new Map<string, TfLStopPoint>();
   const stationLineMap = new Map<string, Set<string>>();
+  // Store sequence info: Map<lineId, Map<naptanId, { sequence, branch }>>
+  const sequenceMap = new Map<string, Map<string, { sequence: number; branch: string }>>();
 
   for (const line of lines) {
     console.log(`Fetching stations for ${line.name}...`);
@@ -101,6 +124,27 @@ async function main() {
         }
         stationLineMap.get(station.naptanId)!.add(line.id);
       }
+    }
+
+    // Fetch route sequence for ordering
+    try {
+      console.log(`  Fetching route sequence for ${line.name}...`);
+      const routeSeq = await fetchRouteSequence(line.id, 'outbound');
+      const lineSequenceMap = new Map<string, { sequence: number; branch: string }>();
+
+      for (const route of routeSeq.orderedLineRoutes) {
+        const branchName = route.name || 'main';
+        route.naptanIds.forEach((naptanId, index) => {
+          // Only store if not already present (first branch wins for shared stations)
+          if (!lineSequenceMap.has(naptanId)) {
+            lineSequenceMap.set(naptanId, { sequence: index, branch: branchName });
+          }
+        });
+      }
+
+      sequenceMap.set(line.id, lineSequenceMap);
+    } catch (error) {
+      console.log(`  Could not fetch sequence for ${line.name}, skipping...`);
     }
 
     // Small delay to respect rate limits
@@ -180,15 +224,21 @@ async function main() {
       inserted++;
     }
 
-    // Link station to lines
+    // Link station to lines with sequence info
     const lineIds = stationLineMap.get(naptanId);
     if (lineIds) {
       for (const tflLineId of lineIds) {
         const dbLineId = lineIdMap.get(tflLineId);
         if (dbLineId) {
+          const seqInfo = sequenceMap.get(tflLineId)?.get(naptanId);
           await supabase.from('station_lines').upsert(
-            { station_id: stationId, line_id: dbLineId },
-            { onConflict: 'station_id,line_id' }
+            {
+              station_id: stationId,
+              line_id: dbLineId,
+              sequence: seqInfo?.sequence ?? null,
+              branch: seqInfo?.branch ?? null,
+            },
+            { onConflict: 'station_id,line_id,branch' }
           );
         }
       }

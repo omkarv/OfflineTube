@@ -12,25 +12,25 @@ export function useFavorites() {
   }, []);
 
   const toggleFavoriteStation = useCallback((stationId: string) => {
-    setFavoriteStations((prev) => {
-      const isCurrentlyFavorite = prev.includes(stationId);
-      const updated = isCurrentlyFavorite
-        ? prev.filter((id) => id !== stationId)
-        : [...prev, stationId];
-      setPreferences({ favoriteStations: updated });
-      return updated;
-    });
+    // Read directly from storage to avoid stale state across multiple hook instances
+    const current = getPreferences().favoriteStations;
+    const isCurrentlyFavorite = current.includes(stationId);
+    const updated = isCurrentlyFavorite
+      ? current.filter((id) => id !== stationId)
+      : [...current, stationId];
+    setPreferences({ favoriteStations: updated });
+    setFavoriteStations(updated);
   }, []);
 
   const toggleFavoriteCoffeeShop = useCallback((placeId: string) => {
-    setFavoriteCoffeeShops((prev) => {
-      const isCurrentlyFavorite = prev.includes(placeId);
-      const updated = isCurrentlyFavorite
-        ? prev.filter((id) => id !== placeId)
-        : [...prev, placeId];
-      setPreferences({ favoriteCoffeeShops: updated });
-      return updated;
-    });
+    // Read directly from storage to avoid stale state across multiple hook instances
+    const current = getPreferences().favoriteCoffeeShops;
+    const isCurrentlyFavorite = current.includes(placeId);
+    const updated = isCurrentlyFavorite
+      ? current.filter((id) => id !== placeId)
+      : [...current, placeId];
+    setPreferences({ favoriteCoffeeShops: updated });
+    setFavoriteCoffeeShops(updated);
   }, []);
 
   const isStationFavorite = useCallback(

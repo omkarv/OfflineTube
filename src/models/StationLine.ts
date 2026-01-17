@@ -10,6 +10,8 @@ export default class StationLine extends Model {
 
   @field('station_id') stationId!: string;
   @field('line_id') lineId!: string;
+  @field('sequence') sequence?: number;
+  @field('branch') branch?: string;
 
   @relation('stations', 'station_id') station!: any;
   @relation('tube_lines', 'line_id') line!: any;

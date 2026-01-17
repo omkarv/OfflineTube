@@ -1,24 +1,43 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Text, ActivityIndicator, Pressable } from 'react-native';
 import { useStations } from '@/src/hooks/useStations';
 import { useOfflineStatus } from '@/src/hooks/useOfflineStatus';
 import { useSync } from '@/src/hooks/useSync';
 import { useFavorites } from '@/src/hooks/useFavorites';
+import { useStationsLines, useAllTubeLines } from '@/src/hooks/useTubeLines';
 import { StationCard } from '@/src/components/StationCard';
 import { SearchInput } from '@/src/components/SearchInput';
+import { LineFilter } from '@/src/components/LineFilter';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
 import Station from '@/src/models/Station';
 
 export default function StationsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const { stations, loading, error } = useStations({ searchQuery });
+  const [selectedLines, setSelectedLines] = useState<string[]>([]);
+  const { stations, loading, error } = useStations({ searchQuery, lineFilter: selectedLines });
   const { isOffline } = useOfflineStatus();
   const { isSyncing, lastSyncAt, needsSync, sync, error: syncError } = useSync();
   const { isStationFavorite, toggleFavoriteStation } = useFavorites();
 
+  // Get all tube lines for the filter
+  const { lines: allTubeLines } = useAllTubeLines();
+
+  // Get station IDs for batch fetching tube lines
+  const stationIds = useMemo(() => stations.map((s) => s.id), [stations]);
+  const { linesMap } = useStationsLines(stationIds);
+
+  const handleToggleLine = useCallback((tflId: string) => {
+    setSelectedLines((prev) =>
+      prev.includes(tflId)
+        ? prev.filter((id) => id !== tflId)
+        : [...prev, tflId]
+    );
+  }, []);
+
   const renderItem = ({ item }: { item: Station }) => (
     <StationCard
       station={item}
+      lines={linesMap.get(item.id) || []}
       isFavorite={isStationFavorite(item.id)}
       onToggleFavorite={toggleFavoriteStation}
     />
@@ -74,6 +93,11 @@ export default function StationsScreen() {
     <View style={styles.container}>
       {isOffline && <OfflineBanner lastSyncAt={lastSyncAt} />}
       <SearchInput value={searchQuery} onChangeText={setSearchQuery} />
+      <LineFilter
+        lines={allTubeLines}
+        selectedLines={selectedLines}
+        onToggleLine={handleToggleLine}
+      />
       {isLoading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#6b4c35" />
@@ -88,7 +112,7 @@ export default function StationsScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={stations.length === 0 ? styles.emptyList : undefined}
-          extraData={isStationFavorite}
+          extraData={[isStationFavorite, linesMap]}
         />
       )}
     </View>

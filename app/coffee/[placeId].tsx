@@ -2,11 +2,15 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Linking, Pressable, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useCoffeeShop } from '@/src/hooks/useCoffeeShops';
+import { useFavorites } from '@/src/hooks/useFavorites';
 import { formatDistance } from '@/src/utils/distance';
 
 export default function CoffeeShopDetailScreen() {
   const { placeId } = useLocalSearchParams<{ placeId: string }>();
   const { coffeeShop, loading, error } = useCoffeeShop(placeId);
+  const { isCoffeeShopFavorite, toggleFavoriteCoffeeShop } = useFavorites();
+
+  const isFavorite = placeId ? isCoffeeShopFavorite(placeId) : false;
 
   const openMaps = () => {
     if (!coffeeShop) return;
@@ -23,6 +27,12 @@ export default function CoffeeShopDetailScreen() {
   const callPhone = () => {
     if (coffeeShop?.phone) {
       Linking.openURL(`tel:${coffeeShop.phone}`);
+    }
+  };
+
+  const handleToggleFavorite = () => {
+    if (placeId) {
+      toggleFavoriteCoffeeShop(placeId);
     }
   };
 
@@ -88,7 +98,12 @@ export default function CoffeeShopDetailScreen() {
       <Stack.Screen options={{ title: coffeeShop.name }} />
 
       <View style={styles.header}>
-        <Text style={styles.name}>{coffeeShop.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{coffeeShop.name}</Text>
+          <Pressable onPress={handleToggleFavorite} style={styles.favoriteButton}>
+            <Text style={styles.favoriteIcon}>{isFavorite ? '❤️' : '🤍'}</Text>
+          </Pressable>
+        </View>
         <View style={styles.metaRow}>
           {renderRating()}
           {renderPriceLevel()}
@@ -167,11 +182,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#e0e0e0',
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   name: {
     fontSize: 24,
     fontWeight: '700',
     color: '#1a1a1a',
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  favoriteButton: {
+    padding: 4,
+  },
+  favoriteIcon: {
+    fontSize: 28,
   },
   metaRow: {
     flexDirection: 'row',

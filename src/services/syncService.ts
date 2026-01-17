@@ -107,6 +107,8 @@ export async function performInitialSync(): Promise<SyncResult> {
         return stationLinesCollection.prepareCreate((record: any) => {
           record.stationId = sl.station_id;
           record.lineId = sl.line_id;
+          record.sequence = sl.sequence;
+          record.branch = sl.branch;
         });
       });
 

@@ -19,7 +19,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const GOOGLE_PLACES_API_KEY = process.env.GOOGLE_PLACES_API_KEY || '';
 
-const SEARCH_RADIUS_METERS = 300;
+// Adaptive search radius settings
+const MIN_RADIUS_METERS = 200;
+const MAX_RADIUS_METERS = 800;
+const RADIUS_INCREMENT = 150;
+const MIN_RESULTS_THRESHOLD = 5; // Keep expanding until we have at least this many
 const MAX_RESULTS_PER_STATION = 20;
 const RATE_LIMIT_DELAY_MS = 150; // ~6 requests per second
 
@@ -73,7 +77,7 @@ function parsePriceLevel(priceLevel?: string): number | null {
   return map[priceLevel] ?? null;
 }
 
-async function searchNearbyPlaces(lat: number, lon: number): Promise<GooglePlace[]> {
+async function searchNearbyPlaces(lat: number, lon: number, radius: number): Promise<GooglePlace[]> {
   const url = 'https://places.googleapis.com/v1/places:searchNearby';
 
   const response = await fetch(url, {
@@ -90,7 +94,7 @@ async function searchNearbyPlaces(lat: number, lon: number): Promise<GooglePlace
       locationRestriction: {
         circle: {
           center: { latitude: lat, longitude: lon },
-          radius: SEARCH_RADIUS_METERS,
+          radius: radius,
         },
       },
     }),
@@ -103,6 +107,32 @@ async function searchNearbyPlaces(lat: number, lon: number): Promise<GooglePlace
 
   const data = await response.json();
   return data.places || [];
+}
+
+// Iteratively search with expanding radius until we find enough results
+async function searchWithAdaptiveRadius(
+  lat: number,
+  lon: number
+): Promise<{ places: GooglePlace[]; finalRadius: number }> {
+  let currentRadius = MIN_RADIUS_METERS;
+  let places: GooglePlace[] = [];
+
+  while (currentRadius <= MAX_RADIUS_METERS) {
+    places = await searchNearbyPlaces(lat, lon, currentRadius);
+
+    // If we have enough results or hit max results, stop expanding
+    if (places.length >= MIN_RESULTS_THRESHOLD || places.length >= MAX_RESULTS_PER_STATION) {
+      break;
+    }
+
+    // Expand radius and try again
+    currentRadius += RADIUS_INCREMENT;
+
+    // Rate limit between requests
+    await new Promise((resolve) => setTimeout(resolve, RATE_LIMIT_DELAY_MS));
+  }
+
+  return { places, finalRadius: Math.min(currentRadius, MAX_RADIUS_METERS) };
 }
 
 async function main() {
@@ -141,8 +171,8 @@ async function main() {
     console.log(`[${stationsProcessed}/${stations.length}] Processing ${station.name}...`);
 
     try {
-      const places = await searchNearbyPlaces(station.latitude, station.longitude);
-      console.log(`  Found ${places.length} coffee shops`);
+      const { places, finalRadius } = await searchWithAdaptiveRadius(station.latitude, station.longitude);
+      console.log(`  Found ${places.length} coffee shops (radius: ${finalRadius}m)`);
 
       for (const place of places) {
         const distance = calculateDistance(

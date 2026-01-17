@@ -29,6 +29,8 @@ export default appSchema({
       columns: [
         { name: 'station_id', type: 'string', isIndexed: true },
         { name: 'line_id', type: 'string', isIndexed: true },
+        { name: 'sequence', type: 'number', isOptional: true },
+        { name: 'branch', type: 'string', isOptional: true },
       ],
     }),
     tableSchema({
