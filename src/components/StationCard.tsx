@@ -5,13 +5,20 @@ import Station from '../models/Station';
 
 interface StationCardProps {
   station: Station;
+  isFavorite?: boolean;
+  onToggleFavorite?: (stationId: string) => void;
 }
 
-export function StationCard({ station }: StationCardProps) {
+export function StationCard({ station, isFavorite = false, onToggleFavorite }: StationCardProps) {
   const router = useRouter();
 
   const handlePress = () => {
     router.push(`/station/${station.id}`);
+  };
+
+  const handleFavoritePress = (e: any) => {
+    e.stopPropagation();
+    onToggleFavorite?.(station.id);
   };
 
   return (
@@ -32,6 +39,11 @@ export function StationCard({ station }: StationCardProps) {
           )}
         </View>
       </View>
+      {onToggleFavorite && (
+        <Pressable onPress={handleFavoritePress} style={styles.favoriteButton}>
+          <Text style={styles.favoriteIcon}>{isFavorite ? '❤️' : '🤍'}</Text>
+        </Pressable>
+      )}
       <Text style={styles.chevron}>{'>'}</Text>
     </Pressable>
   );
@@ -83,9 +95,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1976d2',
   },
+  favoriteButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  favoriteIcon: {
+    fontSize: 20,
+  },
   chevron: {
     fontSize: 20,
     color: '#999',
-    marginLeft: 8,
+    marginLeft: 4,
   },
 });

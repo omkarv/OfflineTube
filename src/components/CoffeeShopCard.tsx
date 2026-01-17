@@ -6,13 +6,20 @@ import { formatDistance } from '../utils/distance';
 
 interface CoffeeShopCardProps {
   coffeeShop: CoffeeShop;
+  isFavorite?: boolean;
+  onToggleFavorite?: (placeId: string) => void;
 }
 
-export function CoffeeShopCard({ coffeeShop }: CoffeeShopCardProps) {
+export function CoffeeShopCard({ coffeeShop, isFavorite = false, onToggleFavorite }: CoffeeShopCardProps) {
   const router = useRouter();
 
   const handlePress = () => {
     router.push(`/coffee/${coffeeShop.googlePlaceId}`);
+  };
+
+  const handleFavoritePress = (e: any) => {
+    e.stopPropagation();
+    onToggleFavorite?.(coffeeShop.googlePlaceId);
   };
 
   const renderRating = () => {
@@ -66,6 +73,11 @@ export function CoffeeShopCard({ coffeeShop }: CoffeeShopCardProps) {
           )}
         </View>
       </View>
+      {onToggleFavorite && (
+        <Pressable onPress={handleFavoritePress} style={styles.favoriteButton}>
+          <Text style={styles.favoriteIcon}>{isFavorite ? '❤️' : '🤍'}</Text>
+        </Pressable>
+      )}
       <Text style={styles.chevron}>{'>'}</Text>
     </Pressable>
   );
@@ -146,9 +158,16 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
   },
+  favoriteButton: {
+    padding: 8,
+    marginRight: 4,
+  },
+  favoriteIcon: {
+    fontSize: 20,
+  },
   chevron: {
     fontSize: 20,
     color: '#999',
-    marginLeft: 8,
+    marginLeft: 4,
   },
 });

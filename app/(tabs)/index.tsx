@@ -3,6 +3,7 @@ import { View, FlatList, StyleSheet, Text, ActivityIndicator, Pressable } from '
 import { useStations } from '@/src/hooks/useStations';
 import { useOfflineStatus } from '@/src/hooks/useOfflineStatus';
 import { useSync } from '@/src/hooks/useSync';
+import { useFavorites } from '@/src/hooks/useFavorites';
 import { StationCard } from '@/src/components/StationCard';
 import { SearchInput } from '@/src/components/SearchInput';
 import { OfflineBanner } from '@/src/components/OfflineBanner';
@@ -13,13 +14,19 @@ export default function StationsScreen() {
   const { stations, loading, error } = useStations({ searchQuery });
   const { isOffline } = useOfflineStatus();
   const { isSyncing, lastSyncAt, needsSync, sync, error: syncError } = useSync();
+  const { isStationFavorite, toggleFavoriteStation } = useFavorites();
 
-  const renderItem = ({ item }: { item: Station }) => <StationCard station={item} />;
+  const renderItem = ({ item }: { item: Station }) => (
+    <StationCard
+      station={item}
+      isFavorite={isStationFavorite(item.id)}
+      onToggleFavorite={toggleFavoriteStation}
+    />
+  );
 
   const renderEmpty = () => {
     if (loading || isSyncing) return null;
 
-    // No data and needs sync
     if (needsSync || stations.length === 0) {
       return (
         <View style={styles.emptyContainer}>
@@ -81,6 +88,7 @@ export default function StationsScreen() {
           keyExtractor={(item) => item.id}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={stations.length === 0 ? styles.emptyList : undefined}
+          extraData={isStationFavorite}
         />
       )}
     </View>

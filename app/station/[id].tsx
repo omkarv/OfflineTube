@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-nativ
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { useStation } from '@/src/hooks/useStations';
 import { useCoffeeShops } from '@/src/hooks/useCoffeeShops';
+import { useFavorites } from '@/src/hooks/useFavorites';
 import { CoffeeShopCard } from '@/src/components/CoffeeShopCard';
 import CoffeeShop from '@/src/models/CoffeeShop';
 
@@ -10,11 +11,18 @@ export default function StationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { station, loading: stationLoading, error: stationError } = useStation(id);
   const { coffeeShops, loading: shopsLoading, error: shopsError } = useCoffeeShops(id);
+  const { isCoffeeShopFavorite, toggleFavoriteCoffeeShop } = useFavorites();
 
   const loading = stationLoading || shopsLoading;
   const error = stationError || shopsError;
 
-  const renderItem = ({ item }: { item: CoffeeShop }) => <CoffeeShopCard coffeeShop={item} />;
+  const renderItem = ({ item }: { item: CoffeeShop }) => (
+    <CoffeeShopCard
+      coffeeShop={item}
+      isFavorite={isCoffeeShopFavorite(item.googlePlaceId)}
+      onToggleFavorite={toggleFavoriteCoffeeShop}
+    />
+  );
 
   const renderHeader = () => {
     if (!station) return null;
@@ -78,6 +86,7 @@ export default function StationDetailScreen() {
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={coffeeShops.length === 0 ? styles.emptyList : undefined}
+        extraData={isCoffeeShopFavorite}
       />
     </View>
   );
